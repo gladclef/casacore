@@ -31,6 +31,9 @@
 //# Includes
 #include <casacore/casa/aips.h>
 #include <casacore/casa/IO/AipsIO.h>
+#include <casacore/casa/IO/SerializeHelper.h>
+
+#include <climits>
 
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
@@ -103,7 +106,7 @@ namespace casacore { //# NAMESPACE CASACORE - BEGIN
 // Put a C-style array of n elements.
 // First the number of elements is put, thereafter all values.
 template<class T>
-void putAipsIO (AipsIO& aios, uInt n, const T* data);
+void putAipsIO (AipsIO& aios, uInt n, const T* data, SerializeHelper *sh = NULL, Int64 shStartIdx = 0);
 
 // Get n elements into an already available C-style array.
 // The data buffer must be large enough to hold n values.

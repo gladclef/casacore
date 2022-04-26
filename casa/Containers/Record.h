@@ -37,6 +37,7 @@
 #include <casacore/casa/Containers/RecordRep.h>
 #include <casacore/casa/Containers/RecordDesc.h>
 #include <casacore/casa/Utilities/COWPtr.h>
+#include <casacore/casa/IO/SerializeHelper.h>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
@@ -363,7 +364,9 @@ public:
     // Write the Record to an output stream.
     // This is used to write a subrecord, whose description has
     // not been written.
-    void putRecord (AipsIO& os) const;
+    // @target the goal number of bytes to put, may put slightly more than this
+    // @return true if the end of the record has been put onto the stream
+    void putRecord (AipsIO& os, SerializeHelper *sh = NULL) const;
     
     // Read the Record from an input stream.
     // This is used to read a subrecord, whose description has
@@ -373,7 +376,7 @@ public:
     // Put the data of a record.
     // This is used to write a subrecord, whose description has
     // already been written.
-    void putData (AipsIO& os) const;
+    void putData (AipsIO& os, SerializeHelper *sh = NULL) const;
 
     // Read the data of a record.
     // This is used to read a subrecord, whose description has
@@ -454,12 +457,14 @@ inline Bool Record::conform (const Record& other) const
 
 inline AipsIO& operator<< (AipsIO& os, const Record& rec)
 {
+    std::cerr << "..record op<< AipsIO" << std::endl;
     rec.putRecord (os);
     return os;
 }
-inline void Record::putData (AipsIO& os) const
+inline void Record::putData (AipsIO& os, SerializeHelper *sh) const
 {
-    ref().putData (os);
+    std::cerr << "..record putData" << std::endl;
+    ref().putData (os, sh);
 }
 
 inline AipsIO& operator>> (AipsIO& os, Record& rec)

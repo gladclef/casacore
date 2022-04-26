@@ -401,31 +401,94 @@ void TableRecordRep::print (std::ostream& os, Int maxNrValues,
 }
 
 void TableRecordRep::putRecord (AipsIO& os, Int recordType,
-				const TableAttr& parentAttr) const
+				const TableAttr& parentAttr, SerializeHelper *sh) const
 {
-    os.putstart ("TableRecord", 1);              // version 1
-    os << desc_p;
-    os << recordType;
-    putData (os, parentAttr);
-    os.putend();
+    int ll = SerializeHelper::getLogLevel();
+    Int64 idx, avail;
+    sh = SerializeHelper::getInstance(sh, (void*)this, idx, avail);
+    if (ll >= 2) std::cerr << "..TableRecordRep::putRecord (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (avail <= 0) return;
+
+    // write the header
+    if (idx <= 0) {
+        if (ll >= 3) std::cerr << "..TableRecordRep::putRecord - put start" << std::endl;
+        os.putstart("TableRecord",1);
+        os << desc_p;
+        os << recordType;
+        idx = 1;
+        avail = SerializeHelper::update(sh, idx);
+    }
+
+    // write the data
+    if (ll >= 3) std::cerr << "..TableRecordRep::putRecord - put data" << std::endl;
+    putData (os, parentAttr, sh);
+    if (ll >= 3) std::cerr << "..TableRecordRep::putRecord - put data done" << std::endl;
+    idx = SerializeHelper::getIndex(sh);
+
+    // write the footer
+    if ((idx < 0 || idx == LLONG_MAX-1) && avail > 0) {
+        if (ll >= 3) std::cerr << "..TableRecordRep::putRecord - put end" << std::endl;
+        os.putend();
+        idx = LLONG_MAX;
+        SerializeHelper::update(sh, idx);
+    }
 }
 
-void TableRecordRep::putData (AipsIO& os, const TableAttr& parentAttr) const
+void TableRecordRep::putData (AipsIO& os, const TableAttr& parentAttr, SerializeHelper *sh) const
 {
-    for (uInt i=0; i<nused_p; i++) {
-	if (desc_p.type(i) == TpRecord) {
-	    const RecordDesc& desc = desc_p.subRecord(i);
-	    if (desc.nfields() == 0) {
-		static_cast<TableRecord*>(const_cast<void*>(data_p[i]))->putRecord (os,
-								 parentAttr);
-	    }else{
-		static_cast<TableRecord*>(const_cast<void*>(data_p[i]))->putData (os, parentAttr);
-	    }
-	} else if (desc_p.type(i) == TpTable) {
-	  os << static_cast<TableKeyword*>(const_cast<void*>(data_p[i]))->tableName (parentAttr);
-	}else{
-	    putDataField (os, desc_p.type(i), data_p[i]);
-	}
+    int ll = SerializeHelper::getLogLevel();
+    Int64 idx, avail;
+    sh = SerializeHelper::getInstance(sh, (void*)this, idx, avail);
+    if (ll >= 2) std::cerr << "..TableRecordRep::putData [" << this << "] (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (avail <= 0) return;
+
+    Int64 i, start = (idx < 0) ? (0) : (idx-1);
+    for (i = start; i < (Int64)nused_p && avail > 0; i++) {
+        if (ll >= 3) std::cerr << "..TableRecordRep::putData<" << i << "> [" << this << "] ";
+        Bool datumIsSplitable = true;
+        std::stringstream descstr;
+        if (desc_p.type(i) == TpRecord) {
+            const RecordDesc& desc = desc_p.subRecord(i);
+            if (desc.nfields() == 0) {
+                descstr << "table record";
+                if (ll >= 3) std::cerr << descstr.str() << " (optr: " << (void*)(data_p[i]) << ", sptr: " << ( static_cast<TableRecord*>(const_cast<void*>(data_p[i])) ) << ")" << std::endl;
+                static_cast<TableRecord*>(const_cast<void*>(data_p[i]))->putRecord (os,
+                                          parentAttr, sh);
+            }else{
+                descstr << "table data";
+                if (ll >= 3) std::cerr << descstr.str() << " (optr: " << (void*)(data_p[i]) << ", sptr: " << ( static_cast<TableRecord*>(const_cast<void*>(data_p[i])) ) << ")" << std::endl;
+                static_cast<TableRecord*>(const_cast<void*>(data_p[i]))->putData (os, parentAttr, sh);
+            }
+        } else if (desc_p.type(i) == TpTable) {
+            descstr << "table name";
+            if (ll >= 3) std::cerr << descstr.str() << " (optr: " << (void*)(data_p[i]) << ", sptr: " << ( static_cast<TableKeyword*>(const_cast<void*>(data_p[i])) ) << ")" << std::endl;
+            os << static_cast<TableKeyword*>(const_cast<void*>(data_p[i]))->tableName (parentAttr);
+            datumIsSplitable = false;
+        }else{
+            descstr << "data field";
+            if (ll >= 3) std::cerr << descstr.str() << std::endl;
+            datumIsSplitable &= putDataField (os, desc_p.type(i), data_p[i], sh);
+        }
+        
+        avail = SerializeHelper::update(sh, idx);
+        if (avail > 0 || !datumIsSplitable) {
+            // If we still have bytes left to write to, then the full value of the data has been written.
+            // We can therefore safely skip trying to write out this object again on the next call to putData(...).
+            idx = i+2;
+            if (ll >= 3) std::cerr << "..TableRecordRep::putData<" << i << "> - [" << this << "] finished " << descstr.str() << " " << (void*)(data_p[i]) << std::endl;
+            SerializeHelper::update(sh, idx);
+            if (datumIsSplitable) { // TODO remove this check, always objectSerialized
+                SerializeHelper::objectSerialized(sh, (void*)(data_p[i]) );
+            }
+        } else {
+            if (ll >= 3) std::cerr << "..TableRecordRep::putData<" << i << "> - [" << this << "] " << descstr.str() << " not finished" << std::endl;
+        }
+    }
+
+    // Let putRecord(...) know that we're done writing out data
+    if (i == (Int64)nused_p + 2 && avail > 0) {
+        if (ll >= 3) std::cerr << "..TableRecordRep::putData done [" << this << "]" << std::endl;
+        SerializeHelper::update(sh, LLONG_MAX-1);
     }
 }
 

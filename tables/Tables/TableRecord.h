@@ -37,6 +37,7 @@
 #include <casacore/casa/Containers/RecordDesc.h>
 #include <casacore/casa/Utilities/COWPtr.h>
 #include <casacore/casa/Arrays/ArrayFwd.h>
+#include <casacore/casa/IO/SerializeHelper.h>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
@@ -413,7 +414,7 @@ public:
     // Put the data of a record.
     // This is used to write a subrecord, whose description has
     // not been written.
-    void putRecord (AipsIO& os, const TableAttr&) const;
+    void putRecord (AipsIO& os, const TableAttr&, SerializeHelper *sh = NULL) const;
 
     // Read a record.
     // This is used to read a subrecord, whose description has
@@ -423,7 +424,7 @@ public:
     // Put the data of a record.
     // This is used to write a subrecord, whose description has
     // already been written.
-    void putData (AipsIO& os, const TableAttr&) const;
+    void putData (AipsIO& os, const TableAttr&, SerializeHelper *sh) const;
 
     // Read the data of a record.
     // This is used to read a subrecord, whose description has
@@ -523,9 +524,9 @@ inline Bool TableRecord::conform (const TableRecord& other) const
 }
 
 inline void TableRecord::putData (AipsIO& os,
-				  const TableAttr& parentAttr) const
+				  const TableAttr& parentAttr, SerializeHelper *sh) const
 {
-    ref().putData (os, parentAttr);
+    ref().putData (os, parentAttr, sh);
 }
 
 inline void TableRecord::getData (AipsIO& os, uInt version,

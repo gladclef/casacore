@@ -32,6 +32,7 @@
 
 #include <casacore/casa/aips.h>
 #include <casacore/casa/Containers/RecordRep.h>
+#include <casacore/casa/IO/SerializeHelper.h>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
@@ -186,7 +187,7 @@ public:
 
     // Put the description and data of the Record.
     // It also puts the fixedFlag attribute (of the mother object).
-    void putRecord (AipsIO& os, Int recordType, const TableAttr&) const;
+    void putRecord (AipsIO& os, Int recordType, const TableAttr&, SerializeHelper *sh = NULL) const;
 
     // Get the description and data of the Record.
     // It also gets the fixedFlag attribute (of the mother object).
@@ -195,7 +196,7 @@ public:
     // Put the data of a record.
     // This is used to write a subrecord, whose description has
     // already been written.
-    void putData (AipsIO& os, const TableAttr&) const;
+    void putData (AipsIO& os, const TableAttr&, SerializeHelper *sh) const;
 
     // Read the data of a record.
     // This is used to read a subrecord, whose description has

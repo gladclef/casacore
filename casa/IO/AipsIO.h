@@ -37,6 +37,8 @@
 #include <casacore/casa/IO/ByteIO.h>
 #include <casacore/casa/vector.h>
 
+#include <climits>
+
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
 //# Forward Declarations

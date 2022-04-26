@@ -29,17 +29,60 @@
 #define CASA_AIPSIOCARRAY_TCC
 
 #include <casacore/casa/IO/AipsIOCarray.h>
+#include <casacore/casa/IO/MemoryIO.h>
 #include <casacore/casa/Exceptions/Error.h>
+#include <casacore/casa/Utilities/Assert.h>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
 // Put a C-array of n elements.
 template<class T>
-void putAipsIO (AipsIO& ios, uInt n, const T* data)
+void putAipsIO (AipsIO& ios, uInt n, const T* data, SerializeHelper *sh, Int64 shStartIdx)
 {
-    ios << n;
-    for (uInt i=0; i<n; i++) {
-	ios << *data++;
+    int ll = SerializeHelper::getLogLevel();
+    // sh = SerializeHelper::getInstance(sh, &a);
+    Int64 idx = SerializeHelper::getIndex(sh);
+    Int64 avail = SerializeHelper::getAvailable(sh);
+    if (ll >= 2) std::cerr << "..ArrayIOCarray::putAipsIO (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (avail <= 0) return;
+
+    if (sh != NULL) {
+        // write the put count
+        // shStartIdx starts us indexing at 1, from ArrayIO::putArrayPart
+        if (idx <= shStartIdx) {
+            if (ll >= 3) std::cerr << "..ArrayIOCarray::putAipsIO (" << sh << ") put count" << std::endl;
+            ios << n;
+            idx = shStartIdx+1;
+            avail = sh->update(idx);
+        }
+
+        // skip to the current data
+        uInt i, start = (uInt)idx - shStartIdx - 1;
+        if (ll >= 3) std::cerr << "..ArrayIOCarray::putAipsIO (" << sh << ") skip to " << start << std::endl;
+        data += start;
+
+        // write the data
+        if (ll >= 3) std::cerr << "..ArrayIOCarray::putAipsIO (" << sh << ") put data" << std::endl;
+        for (i = start; i < n && avail > 0; i++, data++) {
+            ios << *data;
+            idx = (Int64)i + shStartIdx + 2;
+            if (i % 100 == 0) {
+                avail = sh->update(idx);
+            }
+        }
+        avail = sh->update(idx);
+
+        // update the index to indicate that all writing has been done
+        if (i == n) {
+            if (ll >= 3) std::cerr << "..ArrayIOCarray::putAipsIO (" << sh << ") done" << std::endl;
+            sh->update(LLONG_MAX-1);
+        }
+    } else {
+        // optimization for when we don't have a SerializeHelper
+        ios << n;
+        for (uInt i = 0; i < n; i++, data++) {
+            ios << *data;
+        }
     }
 }
 

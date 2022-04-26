@@ -32,8 +32,10 @@
 #include <vector>
 #include <ostream>
 #include <regex>
+#include <climits>
 
 #include <casacore/casa/Arrays/ArrayFwd.h>
+#include <casacore/casa/IO/SerializeHelper.h>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
@@ -114,6 +116,9 @@ AipsIO &operator<< (AipsIO &, const Array<T, Alloc> &);
 
 template<typename T, typename Alloc>
 void putArray (AipsIO &, const Array<T, Alloc> &, const char* name);
+
+template<typename T, typename Alloc>
+void putArrayPart (AipsIO &, const Array<T, Alloc> &, const char* name, SerializeHelper *sh);
 
 template<typename T, typename Alloc>
 AipsIO &operator>> (AipsIO &, Array<T, Alloc> &);

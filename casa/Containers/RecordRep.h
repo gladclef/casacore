@@ -35,6 +35,8 @@
 #include <casacore/casa/Containers/Block.h>
 #include <casacore/casa/Containers/RecordDesc.h>
 #include <casacore/casa/Containers/RecordInterface.h>
+#include <casacore/casa/IO/SerializeHelper.h>
+#include <climits>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
@@ -162,10 +164,10 @@ public:
     // For arrays it is possible to define if the shape is fixed.
     // <group>
     void addDataField (const String& name, DataType type,
-		       const IPosition& shape, Bool fixedShape,
-		       const void* data);
+               const IPosition& shape, Bool fixedShape,
+               const void* data);
     void addField (const String& name, const Record& value,
-		   RecordInterface::RecordType type);
+           RecordInterface::RecordType type);
     // </group>
 
     // Define a value for the given field.
@@ -177,7 +179,7 @@ public:
 
     // Put the description and data of the Record.
     // It also puts the fixedFlag attribute (of the mother object).
-    void putRecord (AipsIO& os, int recordType) const;
+    void putRecord (AipsIO& os, int recordType, SerializeHelper *sh = NULL) const;
 
     // Get the description and data of the Record.
     // It also gets the fixedFlag attribute (of the mother object).
@@ -186,7 +188,7 @@ public:
     // Put the data of a record.
     // This is used to write a subrecord, whose description has
     // already been written.
-    void putData (AipsIO& os) const;
+    void putData (AipsIO& os, SerializeHelper *sh) const;
 
     // Read the data of a record.
     // This is used to read a subrecord, whose description has
@@ -198,12 +200,12 @@ public:
     // <group>
     void* get_pointer (Int whichField, DataType type) const;
     void* get_pointer (Int whichField, DataType type,
-		       const String& recordType) const;
+               const String& recordType) const;
     // </group>
 
     // Merge a field from another record into this record.
     void mergeField (const RecordRep& other, Int whichFieldFromOther,
-		     RecordInterface::DuplicatesFlag);
+             RecordInterface::DuplicatesFlag);
 
     // Merge all fields from the other record into this record.
     void merge (const RecordRep& other, RecordInterface::DuplicatesFlag);
@@ -213,8 +215,8 @@ public:
     // Only the first <src>maxNrValues</src> of an array will be printed.
     // A value < 0 means the entire array.
     void print (std::ostream&,
-		Int maxNrValues = 25,
-		const String& indent="") const;
+        Int maxNrValues = 25,
+        const String& indent="") const;
 
 protected:
     // Utility functions to avoid code duplication in the public member 
@@ -237,11 +239,11 @@ protected:
     // Check if the shape of the data array matches the shape of a
     // fixed-shaped array in the description.
     void checkShape (DataType type, const IPosition& shape,
-		     const void* value, const String& fieldName);
+             const void* value, const String& fieldName);
 
     // Add a field to the description.
     virtual void addFieldToDesc (const String& name, DataType type,
-				 const IPosition& shape, Bool fixedShape);
+                 const IPosition& shape, Bool fixedShape);
 
     // Remove a data field.
     virtual void removeData (Int whichField, void* ptr, void* vecptr);
@@ -264,12 +266,12 @@ protected:
     // Print a data field.
     // This can only handle scalars and arrays.
     void printDataField (std::ostream& os, DataType type,
-			 const String& indent, Int maxNrValues,
-			 const void* ptr) const;
+             const String& indent, Int maxNrValues,
+             const void* ptr) const;
 
     // Put a data field.
     // This can only handle scalars and arrays.
-    void putDataField (AipsIO& os, DataType type, const void* ptr) const;
+    Bool putDataField (AipsIO& os, DataType type, const void* ptr, SerializeHelper *sh) const;
 
     // Get a data field.
     // This can only handle scalars and arrays.

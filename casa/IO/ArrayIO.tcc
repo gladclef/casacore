@@ -63,11 +63,8 @@ AipsIO &operator<<(AipsIO &ios, const Array<T> &a)
 }
 
 template<class T>
-void putArray (AipsIO &ios, const Array<T> &a, const Char* name)
+void _putHeader (AipsIO &ios, const Array<T> &a, const Char* name)
 {
-    if (a.size() * sizeof(T) > 2147483647) {
-      throw AipsError("AipsIO putArray too large (exceeds 2**31 bytes)");
-    }
     ios.putstart(name, Array<T>::arrayVersion());
     // Write out dimensionality
     ios << uInt(a.ndim());
@@ -75,12 +72,68 @@ void putArray (AipsIO &ios, const Array<T> &a, const Char* name)
     for (size_t i=0; i < a.ndim(); i++) {
       ios << uInt(a.shape()(i));
     }
+}
+
+template<class T>
+void putArray (AipsIO &ios, const Array<T> &a, const Char* name)
+{
+    if (a.size() * sizeof(T) > 2147483647) {
+        throw AipsError("AipsIO putArray too large (exceeds 2**31 bytes)");
+    }
+
+    // Write out array name, dimensionality, and length
+    _putHeader(ios, a, name);
     // Now write out the data
     bool deleteIt;
     const T *storage =  a.getStorage(deleteIt);
     putAipsIO (ios, a.nelements(), storage);
     a.freeStorage(storage, deleteIt);
     ios.putend();
+}
+
+template<class T>
+void putArrayPart (AipsIO &ios, const Array<T> &a, const Char* name, SerializeHelper *sh)
+{
+    int ll = SerializeHelper::getLogLevel();
+    // like putArray, but only serialize part of the array
+
+    // basic check
+    if (a.size() * sizeof(T) > 2147483647) {
+        throw AipsError("AipsIO putArray too large (exceeds 2**31 bytes)");
+    }
+
+    // get the serialization index
+    Int64 idx, avail;
+    sh = SerializeHelper::getInstance(sh, (void*)&a, idx, avail);
+    if (ll >= 2) std::cerr << "..ArrayIO putArrayPart (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (avail <= 0) return;
+
+    // write out array name, dimensionality, and length
+    if (idx <= 0) {
+        if (ll >= 3) std::cerr << "..ArrayIO putArrayPart [" << (void*)&a << "] put header" << std::endl;
+        _putHeader(ios, a, name);
+        idx = 1;
+        avail = SerializeHelper::update(sh, idx);
+    }
+    
+    // Now write out the data
+    if (idx <= LLONG_MAX-1) {
+        if (ll >= 3) std::cerr << "..ArrayIO putArrayPart [" << (void*)&a << "] put data" << std::endl;
+        bool deleteIt;
+        const T *storage =  a.getStorage(deleteIt);
+        putAipsIO (ios, a.nelements(), storage, sh, 1);
+        idx = SerializeHelper::getIndex(sh);
+        a.freeStorage(storage, deleteIt);
+    }
+
+    // Close the array
+    avail = SerializeHelper::getAvailable(sh);
+    if ((idx < 0 || idx == LLONG_MAX-1) && avail > 0) {
+        if (ll >= 3) std::cerr << "..ArrayIO putArrayPart [" << (void*)&a << "] put end" << std::endl;
+        ios.putend();
+        idx = LLONG_MAX;
+        SerializeHelper::update(sh, idx);
+    }
 }
 
 // <thrown>

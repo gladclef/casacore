@@ -1044,83 +1044,79 @@ void RecordRep::print (std::ostream& os,
 }
 
 
-void RecordRep::putDataField (AipsIO& os, DataType type, const void* ptr) const
+Bool RecordRep::putDataField (AipsIO& os, DataType type, const void* ptr, SerializeHelper *sh) const
 {
+    int ll = SerializeHelper::getLogLevel();
+    if (ll >= 3) std::cerr << "..RecordRep::putDataField (sh: " << sh << ")" << std::endl;
     switch (type) {
     case TpBool:
-	os << *static_cast<const Bool*>(ptr);
-	break;
+        os << *static_cast<const Bool*>(ptr);
+        return false;
     case TpUChar:
-	os << *static_cast<const uChar*>(ptr);
-	break;
+        os << *static_cast<const uChar*>(ptr);
+        return false;
     case TpShort:
-	os << *static_cast<const Short*>(ptr);
-	break;
+        os << *static_cast<const Short*>(ptr);
+        return false;
     case TpInt:
-	os << *static_cast<const Int*>(ptr);
-	break;
+        os << *static_cast<const Int*>(ptr);
+        return false;
     case TpUInt:
-	os << *static_cast<const uInt*>(ptr);
-	break;
+        os << *static_cast<const uInt*>(ptr);
+        return false;
     case TpInt64:
-	os << *static_cast<const Int64*>(ptr);
-	break;
+        os << *static_cast<const Int64*>(ptr);
+        return false;
     case TpFloat:
-	os << *static_cast<const float*>(ptr);
-	break;
+        os << *static_cast<const float*>(ptr);
+        return false;
     case TpDouble:
-	os << *static_cast<const double*>(ptr);
-	break;
+        os << *static_cast<const double*>(ptr);
+        return false;
     case TpComplex:
-	os << *static_cast<const Complex*>(ptr);
-	break;
+        os << *static_cast<const Complex*>(ptr);
+        return false;
     case TpDComplex:
-	os << *static_cast<const DComplex*>(ptr);
-	break;
+        os << *static_cast<const DComplex*>(ptr);
+        return false;
     case TpString:
-	os << *static_cast<const String*>(ptr);
-	break;
+        os << *static_cast<const String*>(ptr);
+        return false;
     case TpArrayBool:
-	putArray (os, *static_cast<const Array<Bool>*>(ptr), "Array<void>");
-	break;
+        putArrayPart (os, *static_cast<const Array<Bool>*>(ptr), "Array<void>", sh);
+        return true;
     case TpArrayUChar:
-	putArray (os, *static_cast<const Array<uChar>*>(ptr), "Array<uChar>");
-	break;
+        putArrayPart (os, *static_cast<const Array<uChar>*>(ptr), "Array<uChar>", sh);
+        return true;
     case TpArrayShort:
-	putArray (os, *static_cast<const Array<Short>*>(ptr), "Array<short>");
-	break;
+        putArrayPart (os, *static_cast<const Array<Short>*>(ptr), "Array<short>", sh);
+        return true;
     case TpArrayInt:
-	putArray (os, *static_cast<const Array<Int>*>(ptr), "Array<Int>");
-	break;
+        putArrayPart (os, *static_cast<const Array<Int>*>(ptr), "Array<Int>", sh);
+        return true;
     case TpArrayUInt:
-	putArray (os, *static_cast<const Array<uInt>*>(ptr), "Array<uInt>");
-	break;
+        putArrayPart (os, *static_cast<const Array<uInt>*>(ptr), "Array<uInt>", sh);
+        return true;
     case TpArrayInt64:
-	putArray (os, *static_cast<const Array<Int64>*>(ptr),
-		  "Array<Int64>");
-	break;
+        putArrayPart (os, *static_cast<const Array<Int64>*>(ptr), "Array<Int64>", sh);
+        return true;
     case TpArrayFloat:
-	putArray (os, *static_cast<const Array<float>*>(ptr),
-		  "Array<float>");
-	break;
+        putArrayPart (os, *static_cast<const Array<float>*>(ptr), "Array<float>", sh);
+        return true;
     case TpArrayDouble:
-	putArray (os, *static_cast<const Array<double>*>(ptr),
-		  "Array<double>");
-	break;
+        putArrayPart (os, *static_cast<const Array<double>*>(ptr), "Array<double>", sh);
+        return true;
     case TpArrayComplex:
-	putArray (os, *static_cast<const Array<Complex>*>(ptr),
-		  "Array<void>");
-	break;
+        putArrayPart (os, *static_cast<const Array<Complex>*>(ptr), "Array<void>", sh);
+        return true;
     case TpArrayDComplex:
-	putArray (os, *static_cast<const Array<DComplex>*>(ptr),
-		  "Array<void>");
-	break;
+        putArrayPart (os, *static_cast<const Array<DComplex>*>(ptr), "Array<void>", sh);
+        return true;
     case TpArrayString:
-	putArray (os, *static_cast<const Array<String>*>(ptr),
-		  "Array<String>");
-	break;
+        putArrayPart (os, *static_cast<const Array<String>*>(ptr), "Array<String>", sh);
+        return true;
     default:
-	throw (AipsError ("RecordRep::putDataField"));
+        throw (AipsError ("RecordRep::putDataField"));
     }
 }
 
@@ -1198,28 +1194,91 @@ void RecordRep::getDataField (AipsIO& os, DataType type, void* ptr)
     }
 }
 
-void RecordRep::putRecord (AipsIO& os, int recordType) const
+void RecordRep::putRecord (AipsIO& os, int recordType, SerializeHelper *sh) const
 {
-    os.putstart ("Record", 1);              // version 1
-    os << desc_p;
-    os << recordType;
-    putData (os);
-    os.putend();
+    int ll = SerializeHelper::getLogLevel();
+    Int64 idx, avail;
+    sh = SerializeHelper::getInstance(sh, (void*)this, idx, avail);
+    if (ll >= 2) std::cerr << "..RecordRep::putRecord (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (avail <= 0) return;
+
+    // write the header
+    if (idx <= 0) {
+        if (ll >= 3) std::cerr << "..RecordRep::putRecord - put start" << std::endl;
+        os.putstart("Record",1);
+        os << desc_p;
+        os << recordType;
+        idx = 1;
+        avail = SerializeHelper::update(sh, idx);
+    }
+
+    // write the data
+    if (ll >= 3) std::cerr << "..RecordRep::putRecord - put data" << std::endl;
+    putData (os, sh);
+    if (ll >= 3) std::cerr << "..RecordRep::putRecord - put data done" << std::endl;
+    idx = SerializeHelper::getIndex(sh);
+
+    // write the footer
+    if ((idx < 0 || idx == LLONG_MAX-1) && avail > 0) {
+        if (ll >= 3) std::cerr << "..RecordRep::putRecord - put end" << std::endl;
+        os.putend();
+        idx = LLONG_MAX;
+        SerializeHelper::update(sh, idx);
+    }
+
+    return;
 }
 
-void RecordRep::putData (AipsIO& os) const
+void RecordRep::putData (AipsIO& os, SerializeHelper *sh) const
 {
-    for (uInt i=0; i<nused_p; i++) {
-	if (desc_p.type(i) == TpRecord) {
-	    const RecordDesc& desc = desc_p.subRecord(i);
-	    if (desc.nfields() == 0) {
-		os << *static_cast<Record*>(const_cast<void*>(data_p[i]));
-	    }else{
-		static_cast<Record*>(const_cast<void*>(data_p[i]))->putData (os);
-	    }
-	}else{
-	    putDataField (os, desc_p.type(i), data_p[i]);
-	}
+    int ll = SerializeHelper::getLogLevel();
+    Int64 idx, avail;
+    sh = SerializeHelper::getInstance(sh, (void*)this, idx, avail);
+    if (ll >= 2) std::cerr << "..RecordRep::putData [" << this << "] (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (avail <= 0) return;
+
+    Int64 i, start = (idx < 0) ? (0) : (idx-1);
+    for (i = start; i < (Int64)nused_p && avail > 0; i++) {
+        if (ll >= 3) std::cerr << "..RecordRep::putData<" << i << "> [" << this << "] ";
+        Bool datumIsSplitable = true;
+        std::stringstream descstr;
+        if (desc_p.type(i) == TpRecord) {
+            const RecordDesc& desc = desc_p.subRecord(i);
+            if (desc.nfields() == 0) {
+                descstr << "record";
+                if (ll >= 3) std::cerr << descstr.str() << " (optr: " << (void*)(data_p[i]) << ", sptr: " << ( static_cast<Record*>(const_cast<void*>(data_p[i])) ) << ")" << std::endl;
+                // os << *static_cast<Record*>(const_cast<void*>(data_p[i]));
+                ( static_cast<Record*>(const_cast<void*>(data_p[i])) )->putRecord(os, sh);
+            }else{
+                descstr << "record data";
+                if (ll >= 3) std::cerr << descstr.str() << " (optr: " << (void*)(data_p[i]) << ", sptr: " << ( static_cast<Record*>(const_cast<void*>(data_p[i])) ) << ")" << std::endl;
+                static_cast<Record*>(const_cast<void*>(data_p[i]))->putData (os, sh);
+            }
+        }else{
+            descstr << "data field";
+            if (ll >= 3) std::cerr << descstr.str() << std::endl;
+            datumIsSplitable &= putDataField (os, desc_p.type(i), data_p[i], sh);
+        }
+        
+        avail = SerializeHelper::update(sh, idx);
+        if (avail > 0 || !datumIsSplitable) {
+            // If we still have bytes left to write to, then the full value of the data has been written.
+            // We can therefore safely skip trying to write out this object again on the next call to putData(...).
+            idx = i+2;
+            if (ll >= 3) std::cerr << "..RecordRep::putData<" << i << "> [" << this << "] finished " << descstr.str() << " " << (void*)(data_p[i]) << std::endl;
+            SerializeHelper::update(sh, idx);
+            if (datumIsSplitable) { // TODO remove this check, always objectSerialized
+                SerializeHelper::objectSerialized(sh, (void*)(data_p[i]) );
+            }
+        } else {
+            if (ll >= 3) std::cerr << "..RecordRep::putData<" << i << "> [" << this << "] " << descstr.str() << " not finished" << std::endl;
+        }
+    }
+
+    // Let putRecord(...) know that we're done writing out data
+    if (i == (Int64)nused_p + 2 && avail > 0) {
+        if (ll >= 3) std::cerr << "..RecordRep::putData done [" << this << "]" << std::endl;
+        SerializeHelper::update(sh, LLONG_MAX-1);
     }
 }
 

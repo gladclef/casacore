@@ -392,9 +392,9 @@ AipsIO& operator>> (AipsIO& os, TableRecord& rec)
     return os;
 }
 
-void TableRecord::putRecord (AipsIO& os, const TableAttr& parentAttr) const
+void TableRecord::putRecord (AipsIO& os, const TableAttr& parentAttr, SerializeHelper *sh) const
 {
-    ref().putRecord (os, recordType(), parentAttr);
+    ref().putRecord (os, recordType(), parentAttr, sh);
 }
 void TableRecord::getRecord (AipsIO& os, const TableAttr& parentAttr)
 {

@@ -284,9 +284,24 @@ void Record::merge (const Record& other, DuplicatesFlag flag)
 }
 
 
-void Record::putRecord (AipsIO& os) const
+void Record::putRecord (AipsIO& os, SerializeHelper *sh) const
 {
-    ref().putRecord (os, recordType());
+    int ll = SerializeHelper::getLogLevel();
+    Int64 idx, avail;
+    sh = SerializeHelper::getInstance(sh, (void*)this, idx, avail);
+    if (ll >= 2) std::cerr << "..record::putRecord [" << this << "] (sh: " << sh << ", idx: " << idx << ", avail: " << avail << ")" << std::endl;
+    if (idx <= 0 && avail > 0) {
+        ref().putRecord (os, recordType(), sh);
+        avail = SerializeHelper::getAvailable(sh);
+        if (avail > 0) {
+            idx = 1;
+            SerializeHelper::update(sh, idx);
+            if (ll >= 3) std::cerr << "..record::putRecord [" << this << "] finished " << (void*)(&ref()) << std::endl;
+            SerializeHelper::objectSerialized(sh, (void*)(&ref()) );
+        } else {
+            if (ll >= 3) std::cerr << "..record::putRecord [" << this << "] record " << (void*)(&ref()) << " not finished" << std::endl;
+        }
+    }
 }
 void Record::getRecord (AipsIO& os)
 {
